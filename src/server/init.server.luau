@@ -32,6 +32,16 @@ local function getOrCreateRemoteFunction(name: string): RemoteFunction
 	return rf :: RemoteFunction
 end
 
+local function getOrCreateBindableEvent(name: string): BindableEvent
+	local be = remotesFolder:FindFirstChild(name)
+	if not be then
+		be = Instance.new("BindableEvent")
+		be.Name = name
+		be.Parent = remotesFolder
+	end
+	return be :: BindableEvent
+end
+
 local requestMergeRF = getOrCreateRemoteFunction("RequestMerge")
 local installComponentRF = getOrCreateRemoteFunction("InstallComponent")
 local claimCrateRF = getOrCreateRemoteFunction("ClaimCrate")
@@ -39,6 +49,11 @@ local withdrawHopperCrateRF = getOrCreateRemoteFunction("WithdrawHopperCrate")
 local acceptNPCOfferRF = getOrCreateRemoteFunction("AcceptNPCOffer")
 local updateSignboardRF = getOrCreateRemoteFunction("UpdateSignboard")
 local updateGaragePaintRF = getOrCreateRemoteFunction("UpdateGaragePaint")
+local requestRebirthRF = getOrCreateRemoteFunction("RequestRebirth")
+local purchaseUpgradeRF = getOrCreateRemoteFunction("PurchaseUpgrade")
+
+-- Client BindableEvent from Network Contract
+local toggleLiftHighlightBE = getOrCreateBindableEvent("ToggleLiftHighlight")
 
 -- Service Initializations
 DataService.Init()
@@ -98,6 +113,17 @@ updateGaragePaintRF.OnServerInvoke = function(player: Player, primary: any, seco
 		return false
 	end
 	return CustomizationService.UpdateGaragePaint(player, primary, secondary)
+end
+
+requestRebirthRF.OnServerInvoke = function(player: Player)
+	return EconomyService.Rebirth(player)
+end
+
+purchaseUpgradeRF.OnServerInvoke = function(player: Player, upgradeName: any)
+	if typeof(upgradeName) ~= "string" then
+		return false, "Invalid argument: upgradeName must be string", 0
+	end
+	return EconomyService.PurchaseUpgrade(player, upgradeName)
 end
 
 print("[Server] All Core Services & Remotes Successfully Initialized!")

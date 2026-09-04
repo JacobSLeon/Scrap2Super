@@ -1,5 +1,6 @@
 --!strict
 -- LiftHighlightController: Client-side green highlight outlines for active lift bays
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local LiftHighlightController = {}
@@ -7,6 +8,15 @@ local activeHighlights: { [Instance]: Highlight } = {}
 
 function LiftHighlightController.Init()
 	print("[LiftHighlightController] Initialized lift highlight feedback controller.")
+	
+	-- Connect to Network Contract BindableEvent
+	local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+	local remotesFolder = sharedFolder:WaitForChild("remotes")
+	local toggleBE = remotesFolder:WaitForChild("ToggleLiftHighlight") :: BindableEvent
+	
+	toggleBE.Event:Connect(function(targetSlot: Instance, enabled: boolean)
+		LiftHighlightController.SetSlotHighlight(targetSlot, enabled)
+	end)
 end
 
 function LiftHighlightController.SetSlotHighlight(targetSlot: Instance, enabled: boolean, color: Color3?)

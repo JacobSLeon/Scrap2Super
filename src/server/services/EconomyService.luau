@@ -1,5 +1,5 @@
 --!strict
--- EconomyService: Passive cash ticks, currency transactions & Rebirth system
+-- EconomyService: Passive cash ticks, currency transactions, Rebirth & Black Market upgrades
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -83,6 +83,43 @@ function EconomyService.DeductCash(player: Player, amount: number): boolean
 	return DataService.MutatePlayerData(player, function(d)
 		d.Cash -= amount
 	end)
+end
+
+function EconomyService.PurchaseUpgrade(player: Player, upgradeName: string): (boolean, string, number)
+	local data = DataService.GetPlayerData(player)
+	if not data then
+		return false, "Player data not found", 0
+	end
+
+	local upgradeConfig = TierBalance.UPGRADES[upgradeName]
+	if not upgradeConfig then
+		return false, "Invalid upgrade name", 0
+	end
+
+	local currentLevel = 0
+	if upgradeName == "PneumaticLine" then currentLevel = data.Upgrades.pneumaticLineLevel end
+	if upgradeName == "TorqueMultiplier" then currentLevel = data.Upgrades.torqueMultiplierLevel end
+	if upgradeName == "PriorityBroker" then currentLevel = data.Upgrades.priorityBrokerLevel end
+
+	if currentLevel >= upgradeConfig.maxLevel then
+		return false, "Upgrade is already max level (Level 5)", currentLevel
+	end
+
+	local cost = upgradeConfig.costPerLevel
+	if data.ReputationTokens < cost then
+		return false, string.format("Insufficient Rep Tokens (Requires %d Rep Tokens)", cost), currentLevel
+	end
+
+	local newLevel = currentLevel + 1
+	DataService.MutatePlayerData(player, function(d)
+		d.ReputationTokens -= cost
+		if upgradeName == "PneumaticLine" then d.Upgrades.pneumaticLineLevel = newLevel end
+		if upgradeName == "TorqueMultiplier" then d.Upgrades.torqueMultiplierLevel = newLevel end
+		if upgradeName == "PriorityBroker" then d.Upgrades.priorityBrokerLevel = newLevel end
+	end)
+
+	print(string.format("[EconomyService] Player %s purchased %s Level %d for %d Rep Tokens", player.Name, upgradeName, newLevel, cost))
+	return true, "Success", newLevel
 end
 
 function EconomyService.Rebirth(player: Player): (boolean, number)
