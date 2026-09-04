@@ -8,6 +8,8 @@ local MergeService = require(script.services.MergeService)
 local LiftService = require(script.services.LiftService)
 local HopperService = require(script.services.HopperService)
 local ConveyorService = require(script.services.ConveyorService)
+local NPCService = require(script.services.NPCService)
+local CustomizationService = require(script.services.CustomizationService)
 
 print("[Server] Initializing Scrap to Supercar Server Services...")
 
@@ -34,6 +36,9 @@ local requestMergeRF = getOrCreateRemoteFunction("RequestMerge")
 local installComponentRF = getOrCreateRemoteFunction("InstallComponent")
 local claimCrateRF = getOrCreateRemoteFunction("ClaimCrate")
 local withdrawHopperCrateRF = getOrCreateRemoteFunction("WithdrawHopperCrate")
+local acceptNPCOfferRF = getOrCreateRemoteFunction("AcceptNPCOffer")
+local updateSignboardRF = getOrCreateRemoteFunction("UpdateSignboard")
+local updateGaragePaintRF = getOrCreateRemoteFunction("UpdateGaragePaint")
 
 -- Service Initializations
 DataService.Init()
@@ -42,6 +47,8 @@ MergeService.Init()
 LiftService.Init()
 HopperService.Init()
 ConveyorService.Init()
+NPCService.Init()
+CustomizationService.Init()
 
 -- Network Handlers
 requestMergeRF.OnServerInvoke = function(player: Player, slotA: any, slotB: any)
@@ -70,6 +77,27 @@ withdrawHopperCrateRF.OnServerInvoke = function(player: Player, crateId: any)
 		return false, "Invalid argument: crateId must be string", nil
 	end
 	return HopperService.WithdrawCrate(player, crateId)
+end
+
+acceptNPCOfferRF.OnServerInvoke = function(player: Player, npcId: any, liftId: any)
+	if typeof(npcId) ~= "string" or typeof(liftId) ~= "number" then
+		return false, "Invalid arguments", 0
+	end
+	return NPCService.AcceptOffer(player, npcId, liftId)
+end
+
+updateSignboardRF.OnServerInvoke = function(player: Player, newText: any)
+	if typeof(newText) ~= "string" then
+		return false, "Invalid argument: text must be string"
+	end
+	return CustomizationService.UpdateSignboard(player, newText)
+end
+
+updateGaragePaintRF.OnServerInvoke = function(player: Player, primary: any, secondary: any)
+	if typeof(primary) ~= "table" or typeof(secondary) ~= "table" then
+		return false
+	end
+	return CustomizationService.UpdateGaragePaint(player, primary, secondary)
 end
 
 print("[Server] All Core Services & Remotes Successfully Initialized!")

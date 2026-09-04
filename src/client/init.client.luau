@@ -3,11 +3,13 @@
 local SnapController = require(script.controllers.SnapController)
 local LiftHighlightController = require(script.controllers.LiftHighlightController)
 local ConveyorVisualizer = require(script.controllers.ConveyorVisualizer)
+local DialogUIController = require(script.controllers.DialogUIController)
 
 print("[Client] Initializing Scrap to Supercar Client Controllers...")
 
 SnapController.Init()
 LiftHighlightController.Init()
 ConveyorVisualizer.Init()
+DialogUIController.Init()
 
 print("[Client] All Core Controllers Successfully Initialized!")
