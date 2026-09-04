@@ -1,10 +1,13 @@
 --!strict
 -- Client Entrypoint for Scrap to Supercar
-local SnapController = require(script.controllers.SnapController)
-local LiftHighlightController = require(script.controllers.LiftHighlightController)
-local ConveyorVisualizer = require(script.controllers.ConveyorVisualizer)
-local DialogUIController = require(script.controllers.DialogUIController)
-local HUDController = require(script.controllers.HUDController)
+local controllers = script.Parent:WaitForChild("controllers")
+
+local SnapController = require(controllers:WaitForChild("SnapController"))
+local LiftHighlightController = require(controllers:WaitForChild("LiftHighlightController"))
+local ConveyorVisualizer = require(controllers:WaitForChild("ConveyorVisualizer"))
+local DialogUIController = require(controllers:WaitForChild("DialogUIController"))
+local HUDController = require(controllers:WaitForChild("HUDController"))
+local PartIndexUIController = require(controllers:WaitForChild("PartIndexUIController"))
 
 print("[Client] Initializing Scrap to Supercar Client Controllers...")
 
@@ -13,5 +16,6 @@ LiftHighlightController.Init()
 ConveyorVisualizer.Init()
 DialogUIController.Init()
 HUDController.Init()
+PartIndexUIController.Init()
 
 print("[Client] All Core Controllers & ScreenGui HUD Successfully Initialized!")

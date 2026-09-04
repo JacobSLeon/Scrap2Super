@@ -1,15 +1,19 @@
 --!strict
 -- Server Entrypoint for Scrap to Supercar
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local services = script.Parent:WaitForChild("services")
 
-local DataService = require(script.services.DataService)
-local EconomyService = require(script.services.EconomyService)
-local MergeService = require(script.services.MergeService)
-local LiftService = require(script.services.LiftService)
-local HopperService = require(script.services.HopperService)
-local ConveyorService = require(script.services.ConveyorService)
-local NPCService = require(script.services.NPCService)
-local CustomizationService = require(script.services.CustomizationService)
+local DataService = require(services:WaitForChild("DataService"))
+local PlotService = require(services:WaitForChild("PlotService"))
+local EconomyService = require(services:WaitForChild("EconomyService"))
+local LiftService = require(services:WaitForChild("LiftService"))
+local HopperService = require(services:WaitForChild("HopperService"))
+local ConveyorService = require(services:WaitForChild("ConveyorService"))
+local NPCService = require(services:WaitForChild("NPCService"))
+local CustomizationService = require(services:WaitForChild("CustomizationService"))
+local PartIndexService = require(services:WaitForChild("PartIndexService"))
+local CarryingService = require(services:WaitForChild("CarryingService"))
+local ScrapDisposalService = require(services:WaitForChild("ScrapDisposalService"))
 
 print("[Server] Initializing Scrap to Supercar Server Services...")
 
@@ -44,6 +48,7 @@ end
 
 local requestMergeRF = getOrCreateRemoteFunction("RequestMerge")
 local installComponentRF = getOrCreateRemoteFunction("InstallComponent")
+local removeComponentRF = getOrCreateRemoteFunction("RemoveComponent")
 local claimCrateRF = getOrCreateRemoteFunction("ClaimCrate")
 local withdrawHopperCrateRF = getOrCreateRemoteFunction("WithdrawHopperCrate")
 local acceptNPCOfferRF = getOrCreateRemoteFunction("AcceptNPCOffer")
@@ -51,26 +56,39 @@ local updateSignboardRF = getOrCreateRemoteFunction("UpdateSignboard")
 local updateGaragePaintRF = getOrCreateRemoteFunction("UpdateGaragePaint")
 local requestRebirthRF = getOrCreateRemoteFunction("RequestRebirth")
 local purchaseUpgradeRF = getOrCreateRemoteFunction("PurchaseUpgrade")
+local getPartIndexRF = getOrCreateRemoteFunction("GetPartIndex")
 
--- Client BindableEvent from Network Contract
 local toggleLiftHighlightBE = getOrCreateBindableEvent("ToggleLiftHighlight")
 
--- Service Initializations
+-- Service Initializations (PlotService first so player plots are assigned)
 DataService.Init()
+PlotService.Init()
+PartIndexService.Init()
+CarryingService.Init()
+ScrapDisposalService.Init()
 EconomyService.Init()
-MergeService.Init()
 LiftService.Init()
 HopperService.Init()
 ConveyorService.Init()
 NPCService.Init()
 CustomizationService.Init()
 
+getPartIndexRF.OnServerInvoke = function(player: Player)
+	local data = DataService.GetPlayerData(player)
+	return if data then data.PartIndex else {}
+end
+
+game:GetService("Players").PlayerAdded:Connect(function(player)
+	task.wait(0.5)
+	ConveyorService.RenderAllWorkbenchItems(player)
+	LiftService.SetupPlotLiftPrompts(player)
+	LiftService.RenderAllLiftVisuals(player)
+	ScrapDisposalService.SetupPlotScrapPrompts(player)
+end)
+
 -- Network Handlers
 requestMergeRF.OnServerInvoke = function(player: Player, slotA: any, slotB: any)
-	if typeof(slotA) ~= "number" or typeof(slotB) ~= "number" then
-		return false, "Invalid arguments", nil
-	end
-	return MergeService.MergeItems(player, slotA, slotB)
+	return false, "Workbench merging has been replaced by Part Index duplicate leveling!", nil
 end
 
 installComponentRF.OnServerInvoke = function(player: Player, liftId: any, gridSlot: any)
@@ -78,6 +96,13 @@ installComponentRF.OnServerInvoke = function(player: Player, liftId: any, gridSl
 		return false, "Invalid arguments", nil
 	end
 	return LiftService.InstallComponent(player, liftId, gridSlot)
+end
+
+removeComponentRF.OnServerInvoke = function(player: Player, liftId: any)
+	if typeof(liftId) ~= "number" then
+		return false, "Invalid argument: liftId must be number", nil
+	end
+	return LiftService.RemoveComponent(player, liftId)
 end
 
 claimCrateRF.OnServerInvoke = function(player: Player, crateId: any)

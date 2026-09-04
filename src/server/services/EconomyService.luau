@@ -7,6 +7,7 @@ local RunService = game:GetService("RunService")
 local Types = require(ReplicatedStorage.Shared.types.Types)
 local TierBalance = require(ReplicatedStorage.Shared.config.TierBalance)
 local DataService = require(script.Parent.DataService)
+local PartIndexService = require(script.Parent.PartIndexService)
 
 local EconomyService = {}
 local TICK_INTERVAL = 1.0 -- Cash tick every 1 second
@@ -32,11 +33,18 @@ function EconomyService.ProcessPassiveIncomeTick()
 		local totalCashPerSec = 0
 		for _, liftData in pairs(data.Lifts) do
 			if liftData.isComplete then
+				local eL = if liftData.engineTier then PartIndexService.GetPartLevel(player, "Engine", liftData.engineTier) else 1
+				local cL = if liftData.chassisTier then PartIndexService.GetPartLevel(player, "Chassis", liftData.chassisTier) else 1
+				local bL = if liftData.bodyTier then PartIndexService.GetPartLevel(player, "Body", liftData.bodyTier) else 1
+
 				local cashPerSec = TierBalance.CalculateCarCashPerSec(
 					liftData.engineTier,
 					liftData.chassisTier,
 					liftData.bodyTier,
-					data.Upgrades.torqueMultiplierLevel
+					data.Upgrades.torqueMultiplierLevel,
+					eL,
+					cL,
+					bL
 				)
 				liftData.cashPerSecond = cashPerSec
 				totalCashPerSec += cashPerSec

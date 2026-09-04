@@ -47,6 +47,14 @@ export type PlotCustomization = {
 	secondaryColor: RGBColor,
 }
 
+export type PartIndexEntry = {
+	category: SubAssemblyCategory,
+	tier: number,
+	level: number,
+	duplicatesCount: number,
+	discovered: boolean,
+}
+
 export type PlayerData = {
 	Cash: number,
 	LifetimeCash: number,
@@ -57,6 +65,7 @@ export type PlayerData = {
 	WorkbenchItems: { [string]: WorkbenchItem },
 	HopperCrates: { HopperCrateItem },
 	Lifts: { [string]: MountedCar }, -- Keyed by liftId string (e.g. "1")
+	PartIndex: { [string]: PartIndexEntry }, -- Keyed by category_T<tier> (e.g. "Engine_T1")
 	Upgrades: RepUpgrades,
 	Customization: PlotCustomization,
 }

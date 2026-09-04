@@ -4,12 +4,12 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
-local Workspace = game:GetService("Workspace")
 
 local Types = require(ReplicatedStorage.Shared.types.Types)
 local TierBalance = require(ReplicatedStorage.Shared.config.TierBalance)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local PlotService = require(script.Parent.PlotService)
 
 local NPCService = {}
 local MIN_SPAWN_INTERVAL = 30 -- Faster 30s interval for active studio testing
@@ -44,15 +44,12 @@ end
 
 function NPCService.SpawnNPCOffersForPlayers()
 	local now = os.clock()
-	local map = Workspace:FindFirstChild("ChopShopDistrict")
-	if not map then return end
 
-	for index, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		local data = DataService.GetPlayerData(player)
 		if not data then continue end
 
-		local plotId = index
-		local plotFolder = map:FindFirstChild("Plot_" .. tostring(plotId))
+		local plotFolder = PlotService.GetPlayerPlotFolder(player)
 		if not plotFolder then continue end
 
 		local buyerPad = plotFolder:FindFirstChild("NPCBuyerPad") :: Part?
@@ -71,7 +68,7 @@ function NPCService.SpawnNPCOffersForPlayers()
 			requestedTier = requestedTier,
 			offerAmount = offerAmount,
 			expiresAt = now + OFFER_DURATION,
-			plotId = plotId,
+			plotId = PlotService.GetPlayerPlotId(player) or 1,
 		}
 
 		-- Spawn 3D NPC Dummy Character Model
@@ -104,14 +101,14 @@ function NPCService.SpawnNPCOffersForPlayers()
 		-- ProximityPrompt for [E] Talk to Buyer / Sell Vehicle
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.ActionText = string.format("Sell Pure Tier %d Car ($%d)", requestedTier, offerAmount)
-		prompt.ObjectText = "NPC Vehicle Buyer"
+		prompt.ObjectText = player.Name .. "'s Vehicle Buyer"
 		prompt.HoldDuration = 0.5
-		prompt.MaxActivationDistance = 12
+		prompt.RequiresLineOfSight = false
+		prompt.MaxActivationDistance = 20
 		prompt.Parent = torso
 
 		prompt.Triggered:Connect(function(interactPlayer)
 			if interactPlayer == player then
-				-- Attempt trade on Lift 1
 				local success, msg, payout = NPCService.AcceptOffer(interactPlayer, npcId, 1)
 				if not success then
 					warn("[NPCService] Trade declined: " .. msg)
@@ -124,7 +121,7 @@ function NPCService.SpawnNPCOffersForPlayers()
 			model = npcModel,
 		}
 
-		print(string.format("[NPCService] 3D NPC %s spawned on Plot %d pad for %s requesting Pure Tier %d ($%d)", npcId, plotId, player.Name, requestedTier, offerAmount))
+		print(string.format("[NPCService] 3D NPC %s spawned on %s's pad requesting Pure Tier %d ($%d)", npcId, player.Name, requestedTier, offerAmount))
 	end
 end
 
@@ -169,7 +166,6 @@ function NPCService.AcceptOffer(player: Player, npcId: string, liftId: number): 
 		return false, string.format("NPC requested Pure Tier %d, but lift has Tier %d", offer.requestedTier, car.pureTierLevel or 0), 0
 	end
 
-	-- Execute trade payout & clear lift bay
 	local payoutAmount = offer.offerAmount
 	EconomyService.AddCash(player, payoutAmount)
 

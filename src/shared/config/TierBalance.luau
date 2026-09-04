@@ -18,6 +18,7 @@ TierBalance.TIER_DEFINITIONS = {
 		[3] = { tier = 3, name = "Camshaft", category = "Engine", baseValue = 75 },
 		[4] = { tier = 4, name = "Turbo", category = "Engine", baseValue = 250 },
 		[5] = { tier = 5, name = "Engine Block", category = "Engine", baseValue = 1000 },
+		[6] = { tier = 6, name = "Hyper V8 Engine", category = "Engine", baseValue = 4000 },
 	},
 	Chassis = {
 		[1] = { tier = 1, name = "Brake Pad", category = "Chassis", baseValue = 10 },
@@ -25,6 +26,7 @@ TierBalance.TIER_DEFINITIONS = {
 		[3] = { tier = 3, name = "Axle", category = "Chassis", baseValue = 75 },
 		[4] = { tier = 4, name = "Brake/Wheel Kit", category = "Chassis", baseValue = 250 },
 		[5] = { tier = 5, name = "Rolling Chassis", category = "Chassis", baseValue = 1000 },
+		[6] = { tier = 6, name = "Carbon Monocoque", category = "Chassis", baseValue = 4000 },
 	},
 	Body = {
 		[1] = { tier = 1, name = "Primer", category = "Body", baseValue = 10 },
@@ -32,6 +34,7 @@ TierBalance.TIER_DEFINITIONS = {
 		[3] = { tier = 3, name = "Hood/Trunk", category = "Body", baseValue = 75 },
 		[4] = { tier = 4, name = "Aero Spoiler", category = "Body", baseValue = 250 },
 		[5] = { tier = 5, name = "Widebody Shell", category = "Body", baseValue = 1000 },
+		[6] = { tier = 6, name = "Hypercar Shell", category = "Body", baseValue = 4000 },
 	},
 }
 
@@ -42,6 +45,7 @@ TierBalance.TIER_CASH_PER_SEC = {
 	[3] = 20,
 	[4] = 70,
 	[5] = 300,
+	[6] = 1200,
 }
 
 -- Default Crate Rarity Drop Probabilities (Base)
@@ -84,11 +88,22 @@ function TierBalance.CalculateCarCashPerSec(
 	engineTier: number?,
 	chassisTier: number?,
 	bodyTier: number?,
-	torqueMultiplierLevel: number
+	torqueMultiplierLevel: number,
+	engineLevel: number?,
+	chassisLevel: number?,
+	bodyLevel: number?
 ): (number, boolean, number?)
-	local eVal = if engineTier then (TierBalance.TIER_CASH_PER_SEC[engineTier] or 0) else 0
-	local cVal = if chassisTier then (TierBalance.TIER_CASH_PER_SEC[chassisTier] or 0) else 0
-	local bVal = if bodyTier then (TierBalance.TIER_CASH_PER_SEC[bodyTier] or 0) else 0
+	local eL = engineLevel or 1
+	local cL = chassisLevel or 1
+	local bL = bodyLevel or 1
+
+	local eMult = 1 + ((eL - 1) * 0.25)
+	local cMult = 1 + ((cL - 1) * 0.25)
+	local bMult = 1 + ((bL - 1) * 0.25)
+
+	local eVal = if engineTier then ((TierBalance.TIER_CASH_PER_SEC[engineTier] or 0) * eMult) else 0
+	local cVal = if chassisTier then ((TierBalance.TIER_CASH_PER_SEC[chassisTier] or 0) * cMult) else 0
+	local bVal = if bodyTier then ((TierBalance.TIER_CASH_PER_SEC[bodyTier] or 0) * bMult) else 0
 
 	local isComplete = (engineTier ~= nil) and (chassisTier ~= nil) and (bodyTier ~= nil)
 	local isPure = isComplete and (engineTier == chassisTier) and (chassisTier == bodyTier)
@@ -104,6 +119,14 @@ function TierBalance.CalculateCarCashPerSec(
 	local finalCashPerSec = math.floor(baseTotal * globalMultiplier)
 
 	return finalCashPerSec, isPure, pureTierLevel
+end
+
+function TierBalance.CalculateScrapPayout(category: Types.SubAssemblyCategory, tier: number, level: number?): number
+	local defs = TierBalance.TIER_DEFINITIONS[category]
+	local base = if defs and defs[tier] then defs[tier].baseValue else 10
+	local l = level or 1
+	local levelMult = 1 + ((l - 1) * 0.25)
+	return math.floor(base * 1.5 * levelMult)
 end
 
 return TierBalance

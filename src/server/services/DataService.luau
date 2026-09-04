@@ -8,27 +8,42 @@ local Types = require(ReplicatedStorage.Shared.types.Types)
 local DataService = {}
 local profiles: { [Player]: Types.PlayerData } = {}
 
+local function createDefaultPartIndex(): { [string]: Types.PartIndexEntry }
+	local index = {}
+	local categories: { Types.SubAssemblyCategory } = { "Engine", "Chassis", "Body" }
+	for _, cat in ipairs(categories) do
+		for tier = 1, 6 do
+			local key = string.format("%s_T%d", cat, tier)
+			index[key] = {
+				category = cat,
+				tier = tier,
+				level = 1,
+				duplicatesCount = 0,
+				discovered = false,
+			}
+		end
+	end
+	return index
+end
+
 local DEFAULT_PROFILE: Types.PlayerData = {
-	Cash = 100,
-	LifetimeCash = 100,
+	Cash = 1000,
+	LifetimeCash = 1000,
 	ReputationTokens = 0,
 	RebirthCount = 0,
-	UnlockedLifts = 1,
-	HasOverflowHopper = false,
+	UnlockedLifts = 6,
+	HasOverflowHopper = true,
 	WorkbenchItems = {},
 	HopperCrates = {},
 	Lifts = {
-		["1"] = {
-			liftId = 1,
-			engineTier = nil,
-			chassisTier = nil,
-			bodyTier = nil,
-			isComplete = false,
-			isPureTier = false,
-			pureTierLevel = nil,
-			cashPerSecond = 0,
-		},
+		["1"] = { liftId = 1, engineTier = nil, chassisTier = nil, bodyTier = nil, isComplete = false, isPureTier = false, pureTierLevel = nil, cashPerSecond = 0 },
+		["2"] = { liftId = 2, engineTier = nil, chassisTier = nil, bodyTier = nil, isComplete = false, isPureTier = false, pureTierLevel = nil, cashPerSecond = 0 },
+		["3"] = { liftId = 3, engineTier = nil, chassisTier = nil, bodyTier = nil, isComplete = false, isPureTier = false, pureTierLevel = nil, cashPerSecond = 0 },
+		["4"] = { liftId = 4, engineTier = nil, chassisTier = nil, bodyTier = nil, isComplete = false, isPureTier = false, pureTierLevel = nil, cashPerSecond = 0 },
+		["5"] = { liftId = 5, engineTier = nil, chassisTier = nil, bodyTier = nil, isComplete = false, isPureTier = false, pureTierLevel = nil, cashPerSecond = 0 },
+		["6"] = { liftId = 6, engineTier = nil, chassisTier = nil, bodyTier = nil, isComplete = false, isPureTier = false, pureTierLevel = nil, cashPerSecond = 0 },
 	},
+	PartIndex = createDefaultPartIndex(),
 	Upgrades = {
 		pneumaticLineLevel = 0,
 		torqueMultiplierLevel = 0,
