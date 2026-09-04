@@ -11,7 +11,7 @@ TierBalance.PURE_SYNERGY_MULTIPLIER = 1.25
 TierBalance.REBIRTH_CASH_DENOMINATOR = 10000
 
 -- Sub-Assembly Tier Definitions
-TierBalance.TIER_DEFINITIONS: { [Types.SubAssemblyCategory]: { [number]: Types.TierDefinition } } = {
+TierBalance.TIER_DEFINITIONS = {
 	Engine = {
 		[1] = { tier = 1, name = "Spark Plug", category = "Engine", baseValue = 10 },
 		[2] = { tier = 2, name = "Piston", category = "Engine", baseValue = 25 },
@@ -36,7 +36,7 @@ TierBalance.TIER_DEFINITIONS: { [Types.SubAssemblyCategory]: { [number]: Types.T
 }
 
 -- Cash/sec contribution per sub-assembly tier when mounted on a lift
-TierBalance.TIER_CASH_PER_SEC: { [number]: number } = {
+TierBalance.TIER_CASH_PER_SEC = {
 	[1] = 2,
 	[2] = 6,
 	[3] = 20,
@@ -45,7 +45,7 @@ TierBalance.TIER_CASH_PER_SEC: { [number]: number } = {
 }
 
 -- Default Crate Rarity Drop Probabilities (Base)
-TierBalance.CRATE_DROP_TABLE: { [Types.CrateRarity]: { dropWeight: number, defaultTier: number } } = {
+TierBalance.CRATE_DROP_TABLE = {
 	Common = { dropWeight = 70, defaultTier = 1 },
 	Uncommon = { dropWeight = 20, defaultTier = 2 },
 	Rare = { dropWeight = 8, defaultTier = 3 },
