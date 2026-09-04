@@ -52,12 +52,20 @@ local function deepCopy<T>(t: T): T
 	return copy :: any
 end
 
-function DataService.Init()
-	Players.PlayerAdded:Connect(function(player)
-		-- Initialize default session profile
+local function onPlayerAdded(player: Player)
+	if not profiles[player] then
 		profiles[player] = deepCopy(DEFAULT_PROFILE)
-		print(string.format("[DataService] Loaded data profile for player %s (UserId: %d)", player.Name, player.UserId))
-	end)
+		print(string.format("[DataService] Successfully initialized profile for player %s (UserId: %d)", player.Name, player.UserId))
+	end
+end
+
+function DataService.Init()
+	Players.PlayerAdded:Connect(onPlayerAdded)
+	
+	-- Handle players already connected prior to DataService initialization (fixes Studio Playtest race condition)
+	for _, player in ipairs(Players:GetPlayers()) do
+		onPlayerAdded(player)
+	end
 
 	Players.PlayerRemoving:Connect(function(player)
 		profiles[player] = nil

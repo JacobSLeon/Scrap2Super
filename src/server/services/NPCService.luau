@@ -1,9 +1,10 @@
 --!strict
--- NPCService: Spawning NPC collectors, generating Pure Tier offers & resolving trades
+-- NPCService: Spawning physical 3D NPC collectors, generating Pure Tier offers & resolving trades
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local Workspace = game:GetService("Workspace")
 
 local Types = require(ReplicatedStorage.Shared.types.Types)
 local TierBalance = require(ReplicatedStorage.Shared.config.TierBalance)
@@ -11,13 +12,18 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 
 local NPCService = {}
-local MIN_SPAWN_INTERVAL = 60 -- Seconds
-local MAX_SPAWN_INTERVAL = 90 -- Seconds
+local MIN_SPAWN_INTERVAL = 30 -- Faster 30s interval for active studio testing
+local MAX_SPAWN_INTERVAL = 45 -- Faster 45s interval for active studio testing
 local OFFER_DURATION = 120 -- Offer expires after 2 minutes
 
-local activeOffers: { [string]: Types.NPCTradeOffer } = {}
+type ActiveNPCOffer = {
+	offer: Types.NPCTradeOffer,
+	model: Model?,
+}
+
+local activeOffers: { [string]: ActiveNPCOffer } = {}
 local lastSpawnTime = 0
-local nextInterval = 60
+local nextInterval = 30
 
 function NPCService.Init()
 	nextInterval = math.random(MIN_SPAWN_INTERVAL, MAX_SPAWN_INTERVAL)
@@ -33,52 +39,113 @@ function NPCService.Init()
 		NPCService.CleanupExpiredOffers(now)
 	end)
 
-	print("[NPCService] Initialized NPC trade broker service.")
+	print("[NPCService] Initialized physical 3D NPC trade broker service.")
 end
 
 function NPCService.SpawnNPCOffersForPlayers()
 	local now = os.clock()
-	for _, player in ipairs(Players:GetPlayers()) do
+	local map = Workspace:FindFirstChild("ChopShopDistrict")
+	if not map then return end
+
+	for index, player in ipairs(Players:GetPlayers()) do
 		local data = DataService.GetPlayerData(player)
 		if not data then continue end
 
-		-- Check PriorityBroker upgrade (20% faster arrival per level)
+		local plotId = index
+		local plotFolder = map:FindFirstChild("Plot_" .. tostring(plotId))
+		if not plotFolder then continue end
+
+		local buyerPad = plotFolder:FindFirstChild("NPCBuyerPad") :: Part?
+		if not buyerPad then continue end
+
 		local priorityLevel = data.Upgrades.priorityBrokerLevel
 		local requestedTier = math.random(1, 5)
 
-		-- Calculate trade payout with 1.5x base multiplier + PriorityBroker payout bonus (+15% per level)
 		local baseTierValue = TierBalance.TIER_CASH_PER_SEC[requestedTier] * 100
 		local brokerBonus = 1 + (priorityLevel * TierBalance.UPGRADES.PriorityBroker.payoutBonusPerLevel)
 		local offerAmount = math.floor(baseTierValue * 1.5 * brokerBonus)
 
 		local npcId = HttpService:GenerateGUID(false)
-		local offer: Types.NPCTradeOffer = {
+		local offerData: Types.NPCTradeOffer = {
 			npcId = npcId,
 			requestedTier = requestedTier,
 			offerAmount = offerAmount,
 			expiresAt = now + OFFER_DURATION,
-			plotId = 1, -- Player's assigned plot ID
+			plotId = plotId,
 		}
 
-		activeOffers[npcId] = offer
-		print(string.format("[NPCService] NPC %s arrived for %s requesting Pure Tier %d Car ($%d)", npcId, player.Name, requestedTier, offerAmount))
+		-- Spawn 3D NPC Dummy Character Model
+		local npcModel = Instance.new("Model")
+		npcModel.Name = "NPCCollector_" .. npcId
+
+		local torso = Instance.new("Part")
+		torso.Name = "HumanoidRootPart"
+		torso.Size = Vector3.new(2, 5, 2)
+		torso.CFrame = buyerPad.CFrame * CFrame.new(0, 3.5, 0)
+		torso.Color = Color3.fromRGB(40, 180, 220)
+		torso.Material = Enum.Material.SmoothPlastic
+		torso.Anchored = true
+		torso.Parent = npcModel
+
+		local head = Instance.new("Part")
+		head.Name = "Head"
+		head.Size = Vector3.new(1.5, 1.5, 1.5)
+		head.CFrame = torso.CFrame * CFrame.new(0, 3, 0)
+		head.Color = Color3.fromRGB(240, 200, 160)
+		head.Anchored = true
+		head.Parent = npcModel
+
+		local humanoid = Instance.new("Humanoid")
+		humanoid.Parent = npcModel
+
+		npcModel.PrimaryPart = torso
+		npcModel.Parent = buyerPad
+
+		-- ProximityPrompt for [E] Talk to Buyer / Sell Vehicle
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText = string.format("Sell Pure Tier %d Car ($%d)", requestedTier, offerAmount)
+		prompt.ObjectText = "NPC Vehicle Buyer"
+		prompt.HoldDuration = 0.5
+		prompt.MaxActivationDistance = 12
+		prompt.Parent = torso
+
+		prompt.Triggered:Connect(function(interactPlayer)
+			if interactPlayer == player then
+				-- Attempt trade on Lift 1
+				local success, msg, payout = NPCService.AcceptOffer(interactPlayer, npcId, 1)
+				if not success then
+					warn("[NPCService] Trade declined: " .. msg)
+				end
+			end
+		end)
+
+		activeOffers[npcId] = {
+			offer = offerData,
+			model = npcModel,
+		}
+
+		print(string.format("[NPCService] 3D NPC %s spawned on Plot %d pad for %s requesting Pure Tier %d ($%d)", npcId, plotId, player.Name, requestedTier, offerAmount))
 	end
 end
 
 function NPCService.CleanupExpiredOffers(now: number)
-	for npcId, offer in pairs(activeOffers) do
-		if now >= offer.expiresAt then
+	for npcId, offerEntry in pairs(activeOffers) do
+		if now >= offerEntry.offer.expiresAt then
+			if offerEntry.model then
+				offerEntry.model:Destroy()
+			end
 			activeOffers[npcId] = nil
 		end
 	end
 end
 
 function NPCService.AcceptOffer(player: Player, npcId: string, liftId: number): (boolean, string, number)
-	local offer = activeOffers[npcId]
-	if not offer then
+	local offerEntry = activeOffers[npcId]
+	if not offerEntry then
 		return false, "NPC offer expired or invalid", 0
 	end
 
+	local offer = offerEntry.offer
 	local data = DataService.GetPlayerData(player)
 	if not data then
 		return false, "Player data not found", 0
@@ -95,11 +162,11 @@ function NPCService.AcceptOffer(player: Player, npcId: string, liftId: number): 
 	end
 
 	if not car.isPureTier then
-		return false, "NPCs only accept Pure Tier vehicles (all 3 parts must share the same tier level)", 0
+		return false, "NPCs only accept Pure Tier vehicles", 0
 	end
 
 	if car.pureTierLevel ~= offer.requestedTier then
-		return false, string.format("NPC requested a Pure Tier %d vehicle, but lift has Tier %d", offer.requestedTier, car.pureTierLevel or 0), 0
+		return false, string.format("NPC requested Pure Tier %d, but lift has Tier %d", offer.requestedTier, car.pureTierLevel or 0), 0
 	end
 
 	-- Execute trade payout & clear lift bay
@@ -119,8 +186,12 @@ function NPCService.AcceptOffer(player: Player, npcId: string, liftId: number): 
 		}
 	end)
 
+	if offerEntry.model then
+		offerEntry.model:Destroy()
+	end
 	activeOffers[npcId] = nil
-	print(string.format("[NPCService] Player %s sold Pure Tier %d car on Lift %d to NPC for $%d lump-sum payout!", player.Name, offer.requestedTier, liftId, payoutAmount))
+
+	print(string.format("[NPCService] Player %s sold Pure Tier %d car on Lift %d to NPC for $%d payout!", player.Name, offer.requestedTier, liftId, payoutAmount))
 	return true, "Success", payoutAmount
 end
 
