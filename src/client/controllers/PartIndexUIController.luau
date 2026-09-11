@@ -47,10 +47,10 @@ function PartIndexUIController.Init()
 	toggleBtn.Position = UDim2.new(0.02, 335, 0.02, 0)
 	toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
 	toggleBtn.BackgroundTransparency = 0.15
-	toggleBtn.Text = "📖 PART INDEX\n[Press P]"
+	toggleBtn.Text = "PART INDEX\n[Press P]"
 	toggleBtn.TextColor3 = Color3.fromRGB(0, 220, 255)
-	toggleBtn.TextSize = 17
-	toggleBtn.Font = Enum.Font.FredokaOne
+	toggleBtn.TextSize = 15
+	toggleBtn.Font = Enum.Font.GothamBold
 	toggleBtn.Parent = screenGui
 
 	local btnCorner = Instance.new("UICorner")
@@ -98,10 +98,10 @@ function PartIndexUIController.Init()
 	titleLabel.Size = UDim2.new(1, -60, 0, 35)
 	titleLabel.Position = UDim2.new(0, 15, 0, 10)
 	titleLabel.BackgroundTransparency = 1
-	titleLabel.Text = "📖 PART INDEX & LEVEL PROGRESSION"
+	titleLabel.Text = "PART INDEX & LEVEL PROGRESSION"
 	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	titleLabel.TextSize = 22
-	titleLabel.Font = Enum.Font.FredokaOne
+	titleLabel.TextSize = 20
+	titleLabel.Font = Enum.Font.GothamBold
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	titleLabel.Parent = mainFrame
 
@@ -113,8 +113,8 @@ function PartIndexUIController.Init()
 	subtitleLabel.BackgroundTransparency = 1
 	subtitleLabel.Text = "Collect 3 duplicate parts to Level Up and boost passive vehicle cash rate (+25% / level)!"
 	subtitleLabel.TextColor3 = Color3.fromRGB(160, 175, 195)
-	subtitleLabel.TextSize = 13
-	subtitleLabel.Font = Enum.Font.SourceSans
+	subtitleLabel.TextSize = 12
+	subtitleLabel.Font = Enum.Font.GothamMedium
 	subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	subtitleLabel.Parent = mainFrame
 
@@ -127,7 +127,7 @@ function PartIndexUIController.Init()
 	closeBtn.Text = "X"
 	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	closeBtn.TextSize = 18
-	closeBtn.Font = Enum.Font.FredokaOne
+	closeBtn.Font = Enum.Font.GothamBold
 	closeBtn.Parent = mainFrame
 
 	local closeCorner = Instance.new("UICorner")
@@ -156,7 +156,7 @@ function PartIndexUIController.Init()
 		tabBtn.Text = filterName
 		tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 		tabBtn.TextSize = 15
-		tabBtn.Font = Enum.Font.FredokaOne
+		tabBtn.Font = Enum.Font.GothamBold
 		tabBtn.Parent = tabFrame
 
 		local tCorner = Instance.new("UICorner")
@@ -267,7 +267,7 @@ function PartIndexUIController.Refresh()
 			cardTitle.Text = string.format("T%d: %s", tier, partName)
 			cardTitle.TextColor3 = if discovered then Color3.fromRGB(255, 255, 255) else Color3.fromRGB(120, 125, 135)
 			cardTitle.TextSize = 14
-			cardTitle.Font = Enum.Font.FredokaOne
+			cardTitle.Font = Enum.Font.GothamBold
 			cardTitle.TextXAlignment = Enum.TextXAlignment.Left
 			cardTitle.Parent = card
 
@@ -293,7 +293,7 @@ function PartIndexUIController.Refresh()
 				levelBadge.Text = string.format("Level %d (Boost: %.2fx)", level, mult)
 				levelBadge.TextColor3 = Color3.fromRGB(255, 205, 40)
 				levelBadge.TextSize = 13
-				levelBadge.Font = Enum.Font.FredokaOne
+				levelBadge.Font = Enum.Font.GothamBold
 				levelBadge.TextXAlignment = Enum.TextXAlignment.Left
 				levelBadge.Parent = card
 
@@ -326,7 +326,7 @@ function PartIndexUIController.Refresh()
 				pText.Text = string.format("%d / 3 Duplicates", dups)
 				pText.TextColor3 = Color3.fromRGB(255, 255, 255)
 				pText.TextSize = 11
-				pText.Font = Enum.Font.FredokaOne
+				pText.Font = Enum.Font.GothamBold
 				pText.Parent = pBarBg
 			else
 				-- Locked Status

@@ -59,10 +59,10 @@ local function getOrCreateScrapMachinePart(plotFolder: Folder): Part?
 		local label = Instance.new("TextLabel")
 		label.Size = UDim2.new(1, 0, 1, 0)
 		label.BackgroundTransparency = 1
-		label.Text = "♻️ SCRAP RECYCLER & DISPOSAL\n(Gain Cash for Waste Parts)"
+		label.Text = "SCRAP RECYCLER"
 		label.TextColor3 = Color3.fromRGB(0, 240, 140)
 		label.TextScaled = true
-		label.Font = Enum.Font.FredokaOne
+		label.Font = Enum.Font.GothamBold
 		label.Parent = billboard
 	else
 		machine.CFrame = targetCF
@@ -94,24 +94,26 @@ function ScrapDisposalService.SetupPlotScrapPrompts(player: Player)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ScrapPrompt"
-	prompt.KeyboardKeyCode = Enum.KeyCode.F
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.HoldDuration = 0
 	prompt.RequiresLineOfSight = false
 	prompt.MaxActivationDistance = 30
-	prompt.ObjectText = "Scrap Disposal Machine"
+	prompt.ObjectText = "Scrap Recycler"
 
 	if isHolding and cat and tier then
-		prompt.ActionText = string.format("♻️ Recycle Held %s (T%d) [F] (+$%d Cash)", cat, tier, payout)
+		prompt.ActionText = string.format("Recycle %s (+$%d)", cat, payout)
 	else
-		prompt.ActionText = "♻️ Recycle Held Waste Part [F]"
+		prompt.ActionText = "Recycle Scrap"
 	end
 	prompt.Parent = machine
 
 	prompt.Triggered:Connect(function(triggeringPlayer)
 		if triggeringPlayer ~= player then return end
+		if not DataService.TryLockPlayer(player) then return end
 
 		local checkCat, checkTier = CarryingService.GetHeldItem(player)
 		if not checkCat or not checkTier then
+			DataService.UnlockPlayer(player)
 			print(string.format("[ScrapDisposal] Player %s is not holding a part to scrap!", player.Name))
 			return
 		end
@@ -131,17 +133,26 @@ function ScrapDisposalService.SetupPlotScrapPrompts(player: Player)
 		-- Refresh prompts
 		ScrapDisposalService.SetupPlotScrapPrompts(player)
 
+		DataService.UnlockPlayer(player)
 		print(string.format("[ScrapDisposal] Player %s recycled %s T%d for +$%d Cash!", player.Name, checkCat, checkTier, scrapCash))
 	end)
 end
 
 function ScrapDisposalService.ScrapWorkbenchItem(player: Player, slotNum: number): (boolean, string, number)
+	if not DataService.TryLockPlayer(player) then
+		return false, "Action in progress", 0
+	end
+
 	local data = DataService.GetPlayerData(player)
-	if not data then return false, "Player data not found", 0 end
+	if not data then
+		DataService.UnlockPlayer(player)
+		return false, "Player data not found", 0
+	end
 
 	local slotKey = tostring(slotNum)
 	local item = data.WorkbenchItems[slotKey]
 	if not item then
+		DataService.UnlockPlayer(player)
 		return false, "Slot is empty", 0
 	end
 
@@ -157,6 +168,7 @@ function ScrapDisposalService.ScrapWorkbenchItem(player: Player, slotNum: number
 	local ConveyorService = require(script.Parent.ConveyorService)
 	ConveyorService.RenderEmptyWorkbenchSlotPrompt(player, slotNum)
 
+	DataService.UnlockPlayer(player)
 	print(string.format("[ScrapDisposal] Player %s scrapped workbench item %s T%d from Slot %d for +$%d Cash", player.Name, item.category, item.tier, slotNum, payout))
 	return true, "Success", payout
 end
@@ -176,7 +188,7 @@ function ScrapDisposalService.ShowFloatingCashEffect(parentPart: BasePart, amoun
 	label.Text = string.format("+$%d Cash!", amount)
 	label.TextColor3 = Color3.fromRGB(0, 255, 120)
 	label.TextSize = 22
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBold
 	label.Parent = bb
 
 	task.spawn(function()

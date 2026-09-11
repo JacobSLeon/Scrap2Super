@@ -100,10 +100,11 @@ function CarryingService.PickUpItem(player: Player, category: Types.SubAssemblyC
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
-	label.Text = string.format("📦 Carrying: %s T%d\n(Walk to Lift / Slot & Press F)", category, tier)
-	label.TextColor3 = Color3.fromRGB(0, 230, 255)
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
+	label.Text = string.format("Carrying %s (T%d)", category, tier)
+	label.TextColor3 = Color3.fromRGB(0, 240, 255)
+	label.TextScaled = false
+	label.TextSize = 14
+	label.Font = Enum.Font.GothamBold
 	label.Parent = billboard
 
 	playerHeldItems[player] = {

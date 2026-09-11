@@ -11,11 +11,14 @@ export type RGBColor = {
 	b: number,
 }
 
+export type ItemState = "Belt" | "Workbench" | "Carried" | "Mounted" | "Recycled"
+
 export type WorkbenchItem = {
 	id: string,
 	category: SubAssemblyCategory,
 	tier: number,
 	gridSlot: number, -- 1 to 16 for 4x4 grid
+	state: ItemState?,
 }
 
 export type HopperCrateItem = {
@@ -29,6 +32,9 @@ export type MountedCar = {
 	engineTier: number?,
 	chassisTier: number?,
 	bodyTier: number?,
+	engineState: ItemState?,
+	chassisState: ItemState?,
+	bodyState: ItemState?,
 	isComplete: boolean,
 	isPureTier: boolean,
 	pureTierLevel: number?,
@@ -39,6 +45,7 @@ export type RepUpgrades = {
 	pneumaticLineLevel: number,
 	torqueMultiplierLevel: number,
 	priorityBrokerLevel: number,
+	conveyorSpeedLevel: number,
 }
 
 export type PlotCustomization = {

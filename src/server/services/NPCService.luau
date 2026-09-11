@@ -100,9 +100,9 @@ function NPCService.SpawnNPCOffersForPlayers()
 
 		-- ProximityPrompt for [E] Talk to Buyer / Sell Vehicle
 		local prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText = string.format("Sell Pure Tier %d Car ($%d)", requestedTier, offerAmount)
-		prompt.ObjectText = player.Name .. "'s Vehicle Buyer"
-		prompt.HoldDuration = 0.5
+		prompt.ActionText = string.format("Sell Tier %d ($%d)", requestedTier, offerAmount)
+		prompt.ObjectText = "Collector"
+		prompt.HoldDuration = 0.3
 		prompt.RequiresLineOfSight = false
 		prompt.MaxActivationDistance = 20
 		prompt.Parent = torso
@@ -137,32 +137,42 @@ function NPCService.CleanupExpiredOffers(now: number)
 end
 
 function NPCService.AcceptOffer(player: Player, npcId: string, liftId: number): (boolean, string, number)
+	if not DataService.TryLockPlayer(player) then
+		return false, "Action in progress", 0
+	end
+
 	local offerEntry = activeOffers[npcId]
 	if not offerEntry then
+		DataService.UnlockPlayer(player)
 		return false, "NPC offer expired or invalid", 0
 	end
 
 	local offer = offerEntry.offer
 	local data = DataService.GetPlayerData(player)
 	if not data then
+		DataService.UnlockPlayer(player)
 		return false, "Player data not found", 0
 	end
 
 	local liftKey = tostring(liftId)
 	local car = data.Lifts[liftKey]
 	if not car then
+		DataService.UnlockPlayer(player)
 		return false, "No vehicle found on specified lift", 0
 	end
 
 	if not car.isComplete then
+		DataService.UnlockPlayer(player)
 		return false, "Vehicle on lift is incomplete", 0
 	end
 
 	if not car.isPureTier then
+		DataService.UnlockPlayer(player)
 		return false, "NPCs only accept Pure Tier vehicles", 0
 	end
 
 	if car.pureTierLevel ~= offer.requestedTier then
+		DataService.UnlockPlayer(player)
 		return false, string.format("NPC requested Pure Tier %d, but lift has Tier %d", offer.requestedTier, car.pureTierLevel or 0), 0
 	end
 
@@ -175,6 +185,9 @@ function NPCService.AcceptOffer(player: Player, npcId: string, liftId: number): 
 			engineTier = nil,
 			chassisTier = nil,
 			bodyTier = nil,
+			engineState = nil,
+			chassisState = nil,
+			bodyState = nil,
 			isComplete = false,
 			isPureTier = false,
 			pureTierLevel = nil,
@@ -187,6 +200,7 @@ function NPCService.AcceptOffer(player: Player, npcId: string, liftId: number): 
 	end
 	activeOffers[npcId] = nil
 
+	DataService.UnlockPlayer(player)
 	print(string.format("[NPCService] Player %s sold Pure Tier %d car on Lift %d to NPC for $%d payout!", player.Name, offer.requestedTier, liftId, payoutAmount))
 	return true, "Success", payoutAmount
 end

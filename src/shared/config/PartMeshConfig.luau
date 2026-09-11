@@ -161,20 +161,38 @@ function PartMeshConfig.CreateVisualInstance(category: Types.SubAssemblyCategory
 		highlight.Parent = instance
 
 		local billboard = Instance.new("BillboardGui")
-		billboard.Size = UDim2.new(0, 160, 0, 50)
-		billboard.StudsOffset = Vector3.new(0, 3.5, 0)
-		billboard.AlwaysOnTop = true
+		billboard.Size = UDim2.new(0, 80, 0, 24)
+		billboard.StudsOffset = Vector3.new(0, 1.4, 0)
+		billboard.AlwaysOnTop = false
+		billboard.MaxDistance = 15
 		billboard.Adornee = targetPart
 		billboard.Parent = targetPart
+
+		local frame = Instance.new("Frame")
+		frame.Size = UDim2.new(1, 0, 1, 0)
+		frame.BackgroundColor3 = Color3.fromRGB(15, 18, 26)
+		frame.BackgroundTransparency = 0.25
+		frame.BorderSizePixel = 0
+		frame.Parent = billboard
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 4)
+		corner.Parent = frame
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = getTierHighlightColor(tier)
+		stroke.Thickness = 1
+		stroke.Parent = frame
 
 		local label = Instance.new("TextLabel")
 		label.Size = UDim2.new(1, 0, 1, 0)
 		label.BackgroundTransparency = 1
-		label.Text = string.format("[%s - Tier %d]", category, tier)
+		label.Text = string.format("%s (T%d)", category, tier)
 		label.TextColor3 = getTierHighlightColor(tier)
-		label.TextScaled = true
-		label.Font = Enum.Font.FredokaOne
-		label.Parent = billboard
+		label.TextScaled = false
+		label.TextSize = 11
+		label.Font = Enum.Font.GothamBold
+		label.Parent = frame
 	end
 
 	return instance

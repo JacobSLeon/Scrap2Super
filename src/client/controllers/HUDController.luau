@@ -48,9 +48,9 @@ function HUDController.Init()
 	cashLabel.Position = UDim2.new(0, 10, 0, 5)
 	cashLabel.BackgroundTransparency = 1
 	cashLabel.Text = "Cash: $100"
-	cashLabel.TextColor3 = Color3.fromRGB(0, 230, 120)
-	cashLabel.TextSize = 24
-	cashLabel.Font = Enum.Font.FredokaOne
+	cashLabel.TextColor3 = Color3.fromRGB(0, 240, 140)
+	cashLabel.TextSize = 22
+	cashLabel.Font = Enum.Font.GothamBold
 	cashLabel.TextXAlignment = Enum.TextXAlignment.Left
 	cashLabel.Parent = statsFrame
 
@@ -61,9 +61,9 @@ function HUDController.Init()
 	repLabel.Position = UDim2.new(0, 10, 0, 45)
 	repLabel.BackgroundTransparency = 1
 	repLabel.Text = "Rep Tokens: 0"
-	repLabel.TextColor3 = Color3.fromRGB(240, 190, 40)
-	repLabel.TextSize = 18
-	repLabel.Font = Enum.Font.FredokaOne
+	repLabel.TextColor3 = Color3.fromRGB(255, 190, 40)
+	repLabel.TextSize = 16
+	repLabel.Font = Enum.Font.GothamBold
 	repLabel.TextXAlignment = Enum.TextXAlignment.Left
 	repLabel.Parent = statsFrame
 
@@ -75,8 +75,8 @@ function HUDController.Init()
 	rebirthBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 	rebirthBtn.Text = "REBIRTH (+0 Rep)"
 	rebirthBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-	rebirthBtn.TextSize = 18
-	rebirthBtn.Font = Enum.Font.FredokaOne
+	rebirthBtn.TextSize = 16
+	rebirthBtn.Font = Enum.Font.GothamBold
 	rebirthBtn.Parent = screenGui
 
 	local btnCorner = Instance.new("UICorner")

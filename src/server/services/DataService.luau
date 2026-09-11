@@ -7,6 +7,7 @@ local Types = require(ReplicatedStorage.Shared.types.Types)
 
 local DataService = {}
 local profiles: { [Player]: Types.PlayerData } = {}
+local playerActionLocks: { [Player]: boolean } = {}
 
 local function createDefaultPartIndex(): { [string]: Types.PartIndexEntry }
 	local index = {}
@@ -48,6 +49,7 @@ local DEFAULT_PROFILE: Types.PlayerData = {
 		pneumaticLineLevel = 0,
 		torqueMultiplierLevel = 0,
 		priorityBrokerLevel = 0,
+		conveyorSpeedLevel = 0,
 	},
 	Customization = {
 		signText = "Chop Shop",
@@ -84,8 +86,21 @@ function DataService.Init()
 
 	Players.PlayerRemoving:Connect(function(player)
 		profiles[player] = nil
+		playerActionLocks[player] = nil
 		print(string.format("[DataService] Saved and cleared data profile for player %s", player.Name))
 	end)
+end
+
+function DataService.TryLockPlayer(player: Player): boolean
+	if playerActionLocks[player] then
+		return false
+	end
+	playerActionLocks[player] = true
+	return true
+end
+
+function DataService.UnlockPlayer(player: Player)
+	playerActionLocks[player] = nil
 end
 
 function DataService.GetPlayerData(player: Player): Types.PlayerData?

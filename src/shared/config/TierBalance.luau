@@ -56,6 +56,10 @@ TierBalance.CRATE_DROP_TABLE = {
 	Legendary = { dropWeight = 2, defaultTier = 4 },
 }
 
+-- Base Conveyor Belt Spawning Pacing (3.75s base -> 1.5s max level)
+TierBalance.BASE_CONVEYOR_SPAWN_INTERVAL = 3.75
+TierBalance.MIN_CONVEYOR_SPAWN_INTERVAL = 1.5
+
 -- Black Market Rep Tree Upgrades
 TierBalance.UPGRADES = {
 	PneumaticLine = {
@@ -74,9 +78,19 @@ TierBalance.UPGRADES = {
 		arrivalSpeedBonusPerLevel = 0.20, -- 20% faster NPC arrival
 		payoutBonusPerLevel = 0.15, -- +15% trade payout values
 	},
+	ConveyorSpeed = {
+		maxLevel = 5,
+		costPerLevel = 2, -- Rep Tokens
+		speedReductionPerLevel = 0.45, -- Decreases interval from 3.75s by 0.45s per level down to 1.5s
+	},
 }
 
 -- Helper Functions
+function TierBalance.CalculateConveyorSpawnInterval(upgradeLevel: number): number
+	local level = math.clamp(upgradeLevel or 0, 0, 5)
+	local interval = TierBalance.BASE_CONVEYOR_SPAWN_INTERVAL - (level * TierBalance.UPGRADES.ConveyorSpeed.speedReductionPerLevel)
+	return math.max(TierBalance.MIN_CONVEYOR_SPAWN_INTERVAL, interval)
+end
 function TierBalance.CalculateRepEarned(lifetimeCash: number): number
 	if lifetimeCash < TierBalance.REBIRTH_CASH_DENOMINATOR then
 		return 0

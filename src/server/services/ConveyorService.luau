@@ -26,9 +26,13 @@ type ActiveCrate = {
 }
 
 local activeBeltCrates: { [string]: ActiveCrate } = {}
-local lastSpawnTime = 0
+local playerLastSpawnTimes: { [Player]: number } = {}
 
 function ConveyorService.Init()
+	Players.PlayerRemoving:Connect(function(player)
+		playerLastSpawnTimes[player] = nil
+	end)
+
 	-- Spawn initial batch of crates immediately on server boot
 	task.defer(function()
 		task.wait(1)
@@ -37,15 +41,11 @@ function ConveyorService.Init()
 
 	RunService.Heartbeat:Connect(function()
 		local now = os.clock()
-		if now - lastSpawnTime >= SPAWN_INTERVAL then
-			lastSpawnTime = now
-			ConveyorService.SpawnCratesForPlayers()
-		end
-
+		ConveyorService.SpawnCratesForPlayers()
 		ConveyorService.UpdatePhysicalCrates(now)
 	end)
 
-	print("[ConveyorService] Initialized rapid 3D conveyor belt spawner.")
+	print("[ConveyorService] Initialized 3D conveyor belt spawner with per-player pacing.")
 end
 
 function ConveyorService.RollCrateRarity(pneumaticLevel: number): Types.CrateRarity
@@ -115,8 +115,8 @@ function ConveyorService.SpawnCrateForPlayer(player: Player)
 
 	-- ProximityPrompt for [E] Claim Crate
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Claim " .. rarity .. " Crate"
-	prompt.ObjectText = "Conveyor Belt"
+	prompt.ActionText = "Unbox " .. rarity .. " Crate"
+	prompt.ObjectText = "Conveyor"
 	prompt.HoldDuration = 0
 	prompt.RequiresLineOfSight = false
 	prompt.MaxActivationDistance = 30
@@ -130,18 +130,20 @@ function ConveyorService.SpawnCrateForPlayer(player: Player)
 
 	-- Floating BillboardGui Indicator above Crate
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.new(0, 140, 0, 40)
-	billboard.StudsOffset = Vector3.new(0, 3.5, 0)
-	billboard.AlwaysOnTop = true
+	billboard.Size = UDim2.new(0, 120, 0, 30)
+	billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+	billboard.AlwaysOnTop = false
+	billboard.MaxDistance = 30
 	billboard.Parent = cratePart
 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
-	label.Text = "[" .. rarity .. " Crate]\nPress E"
+	label.Text = rarity .. " Crate"
 	label.TextColor3 = getCrateColor(rarity)
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = false
+	label.TextSize = 13
+	label.Font = Enum.Font.GothamBold
 	label.Parent = billboard
 
 	local crate: ActiveCrate = {
@@ -157,8 +159,19 @@ function ConveyorService.SpawnCrateForPlayer(player: Player)
 end
 
 function ConveyorService.SpawnCratesForPlayers()
+	local now = os.clock()
 	for _, player in ipairs(Players:GetPlayers()) do
-		ConveyorService.SpawnCrateForPlayer(player)
+		local data = DataService.GetPlayerData(player)
+		if not data then continue end
+
+		local lastTime = playerLastSpawnTimes[player] or 0
+		local conveyorSpeedLvl = data.Upgrades and data.Upgrades.conveyorSpeedLevel or 0
+		local interval = TierBalance.CalculateConveyorSpawnInterval(conveyorSpeedLvl)
+
+		if now - lastTime >= interval then
+			playerLastSpawnTimes[player] = now
+			ConveyorService.SpawnCrateForPlayer(player)
+		end
 	end
 end
 
@@ -197,21 +210,28 @@ function ConveyorService.UpdatePhysicalCrates(now: number)
 end
 
 function ConveyorService.ClaimCrate(player: Player, crateId: string): (boolean, string, Types.WorkbenchItem?)
+	if not DataService.TryLockPlayer(player) then
+		return false, "Action in progress", nil
+	end
+
 	local crate = activeBeltCrates[crateId]
 	if not crate then
+		DataService.UnlockPlayer(player)
 		return false, "Crate no longer exists on conveyor belt", nil
 	end
 
 	if crate.owner ~= player then
+		DataService.UnlockPlayer(player)
 		return false, "Crate belongs to another player", nil
 	end
 
 	local data = DataService.GetPlayerData(player)
 	if not data then
+		DataService.UnlockPlayer(player)
 		return false, "Player data not found", nil
 	end
 
-	-- Find open workbench slot (1 to 16)
+	-- Find open workbench snap node (Slot 1 to 16)
 	local openSlot: number? = nil
 	for i = 1, 16 do
 		if data.WorkbenchItems[tostring(i)] == nil then
@@ -221,6 +241,7 @@ function ConveyorService.ClaimCrate(player: Player, crateId: string): (boolean, 
 	end
 
 	if not openSlot then
+		DataService.UnlockPlayer(player)
 		return false, "Workbench is full (16/16 slots occupied)", nil
 	end
 
@@ -237,6 +258,7 @@ function ConveyorService.ClaimCrate(player: Player, crateId: string): (boolean, 
 		category = randomCategory,
 		tier = tierLevel,
 		gridSlot = openSlot,
+		state = "Workbench",
 	}
 
 	-- Record acquired part in PartIndex & check leveling progress
@@ -255,10 +277,11 @@ function ConveyorService.ClaimCrate(player: Player, crateId: string): (boolean, 
 
 	activeBeltCrates[crateId] = nil
 
-	-- Update 3D Workbench visual node
+	-- Unbox directly onto nearest vacant 3D Workbench snap node
 	ConveyorService.RenderWorkbenchItemVisual(player, openSlot, newItem)
+	DataService.UnlockPlayer(player)
 
-	print(string.format("[ConveyorService] Player %s claimed %s crate -> Unboxed %s Tier %d to Slot %d", player.Name, crate.rarity, randomCategory, tierLevel, openSlot))
+	print(string.format("[ConveyorService] Player %s claimed %s crate -> Unboxed %s Tier %d directly onto Workbench Slot %d", player.Name, crate.rarity, randomCategory, tierLevel, openSlot))
 	return true, "Success", newItem
 end
 
@@ -308,8 +331,8 @@ function ConveyorService.RenderEmptyWorkbenchSlotPrompt(player: Player, slotNum:
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "WorkbenchPrompt"
-	prompt.KeyboardKeyCode = Enum.KeyCode.F
-	prompt.ActionText = "Place Held Part [F]"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.ActionText = "Place Held Part [E]"
 	prompt.ObjectText = "Empty Workbench Slot " .. tostring(slotNum)
 	prompt.HoldDuration = 0
 	prompt.RequiresLineOfSight = false
@@ -318,11 +341,18 @@ function ConveyorService.RenderEmptyWorkbenchSlotPrompt(player: Player, slotNum:
 
 	prompt.Triggered:Connect(function(triggeringPlayer)
 		if triggeringPlayer ~= player then return end
+		if not DataService.TryLockPlayer(player) then return end
 
-		if not CarryingService.IsHolding(player) then return end
+		if not CarryingService.IsHolding(player) then
+			DataService.UnlockPlayer(player)
+			return
+		end
 
 		local cat, tier = CarryingService.DropHeldItem(player, true)
-		if not cat or not tier then return end
+		if not cat or not tier then
+			DataService.UnlockPlayer(player)
+			return
+		end
 
 		local HttpService = game:GetService("HttpService")
 		local newItem: Types.WorkbenchItem = {
@@ -330,6 +360,7 @@ function ConveyorService.RenderEmptyWorkbenchSlotPrompt(player: Player, slotNum:
 			category = cat,
 			tier = tier,
 			gridSlot = slotNum,
+			state = "Workbench",
 		}
 
 		DataService.MutatePlayerData(player, function(d)
@@ -337,6 +368,7 @@ function ConveyorService.RenderEmptyWorkbenchSlotPrompt(player: Player, slotNum:
 		end)
 
 		ConveyorService.RenderWorkbenchItemVisual(player, slotNum, newItem)
+		DataService.UnlockPlayer(player)
 		print(string.format("[Workbench] Player %s placed held %s T%d onto Slot %d", player.Name, cat, tier, slotNum))
 	end)
 end
@@ -366,8 +398,8 @@ function ConveyorService.RenderWorkbenchItemVisual(player: Player, slotNum: numb
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "WorkbenchPrompt"
-	prompt.KeyboardKeyCode = Enum.KeyCode.F
-	prompt.ActionText = string.format("Pick Up Part [F] (%s T%d)", item.category, item.tier)
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.ActionText = string.format("Pick Up Part [E] (%s T%d)", item.category, item.tier)
 	prompt.ObjectText = "Workbench Slot " .. tostring(slotNum)
 	prompt.HoldDuration = 0
 	prompt.RequiresLineOfSight = false
@@ -376,17 +408,25 @@ function ConveyorService.RenderWorkbenchItemVisual(player: Player, slotNum: numb
 
 	prompt.Triggered:Connect(function(triggeringPlayer)
 		if triggeringPlayer ~= player then return end
+		if not DataService.TryLockPlayer(player) then return end
 
 		if CarryingService.IsHolding(player) then
+			DataService.UnlockPlayer(player)
 			print(string.format("[Workbench] Player %s is already holding a part! Place or mount it first.", player.Name))
 			return
 		end
 
 		local data = DataService.GetPlayerData(player)
-		if not data then return end
+		if not data then
+			DataService.UnlockPlayer(player)
+			return
+		end
 
 		local currentItem = data.WorkbenchItems[tostring(slotNum)]
-		if not currentItem then return end
+		if not currentItem then
+			DataService.UnlockPlayer(player)
+			return
+		end
 
 		-- Pick up part into player's hands
 		local success = CarryingService.PickUpItem(player, currentItem.category, currentItem.tier)
@@ -398,6 +438,8 @@ function ConveyorService.RenderWorkbenchItemVisual(player: Player, slotNum: numb
 			ConveyorService.RenderEmptyWorkbenchSlotPrompt(player, slotNum)
 			print(string.format("[Workbench] Player %s picked up %s T%d from Slot %d", player.Name, currentItem.category, currentItem.tier, slotNum))
 		end
+
+		DataService.UnlockPlayer(player)
 	end)
 end
 

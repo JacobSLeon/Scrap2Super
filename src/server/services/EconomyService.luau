@@ -94,13 +94,19 @@ function EconomyService.DeductCash(player: Player, amount: number): boolean
 end
 
 function EconomyService.PurchaseUpgrade(player: Player, upgradeName: string): (boolean, string, number)
+	if not DataService.TryLockPlayer(player) then
+		return false, "Action in progress", 0
+	end
+
 	local data = DataService.GetPlayerData(player)
 	if not data then
+		DataService.UnlockPlayer(player)
 		return false, "Player data not found", 0
 	end
 
 	local upgradeConfig = TierBalance.UPGRADES[upgradeName]
 	if not upgradeConfig then
+		DataService.UnlockPlayer(player)
 		return false, "Invalid upgrade name", 0
 	end
 
@@ -108,13 +114,16 @@ function EconomyService.PurchaseUpgrade(player: Player, upgradeName: string): (b
 	if upgradeName == "PneumaticLine" then currentLevel = data.Upgrades.pneumaticLineLevel end
 	if upgradeName == "TorqueMultiplier" then currentLevel = data.Upgrades.torqueMultiplierLevel end
 	if upgradeName == "PriorityBroker" then currentLevel = data.Upgrades.priorityBrokerLevel end
+	if upgradeName == "ConveyorSpeed" then currentLevel = data.Upgrades.conveyorSpeedLevel or 0 end
 
 	if currentLevel >= upgradeConfig.maxLevel then
+		DataService.UnlockPlayer(player)
 		return false, "Upgrade is already max level (Level 5)", currentLevel
 	end
 
 	local cost = upgradeConfig.costPerLevel
 	if data.ReputationTokens < cost then
+		DataService.UnlockPlayer(player)
 		return false, string.format("Insufficient Rep Tokens (Requires %d Rep Tokens)", cost), currentLevel
 	end
 
@@ -124,20 +133,28 @@ function EconomyService.PurchaseUpgrade(player: Player, upgradeName: string): (b
 		if upgradeName == "PneumaticLine" then d.Upgrades.pneumaticLineLevel = newLevel end
 		if upgradeName == "TorqueMultiplier" then d.Upgrades.torqueMultiplierLevel = newLevel end
 		if upgradeName == "PriorityBroker" then d.Upgrades.priorityBrokerLevel = newLevel end
+		if upgradeName == "ConveyorSpeed" then d.Upgrades.conveyorSpeedLevel = newLevel end
 	end)
 
+	DataService.UnlockPlayer(player)
 	print(string.format("[EconomyService] Player %s purchased %s Level %d for %d Rep Tokens", player.Name, upgradeName, newLevel, cost))
 	return true, "Success", newLevel
 end
 
 function EconomyService.Rebirth(player: Player): (boolean, number)
+	if not DataService.TryLockPlayer(player) then
+		return false, 0
+	end
+
 	local data = DataService.GetPlayerData(player)
 	if not data then
+		DataService.UnlockPlayer(player)
 		return false, 0
 	end
 
 	local repEarned = TierBalance.CalculateRepEarned(data.LifetimeCash)
 	if repEarned <= 0 then
+		DataService.UnlockPlayer(player)
 		return false, 0
 	end
 
@@ -159,6 +176,9 @@ function EconomyService.Rebirth(player: Player): (boolean, number)
 				engineTier = nil,
 				chassisTier = nil,
 				bodyTier = nil,
+				engineState = nil,
+				chassisState = nil,
+				bodyState = nil,
 				isComplete = false,
 				isPureTier = false,
 				pureTierLevel = nil,
@@ -167,6 +187,7 @@ function EconomyService.Rebirth(player: Player): (boolean, number)
 		end
 	end)
 
+	DataService.UnlockPlayer(player)
 	print(string.format("[EconomyService] Player %s rebirthed! Earned %d Rep Tokens.", player.Name, repEarned))
 	return true, repEarned
 end

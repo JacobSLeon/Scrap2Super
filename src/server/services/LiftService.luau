@@ -73,30 +73,32 @@ function LiftService.RenderLiftCarVisual(player: Player, liftId: number, car: Ty
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "LiftStatusBillboard"
-	billboard.Size = UDim2.new(0, 180, 0, 55)
-	billboard.StudsOffset = Vector3.new(0, 5.5, 0)
-	billboard.AlwaysOnTop = true
+	billboard.Size = UDim2.new(0, 180, 0, 45)
+	billboard.StudsOffset = Vector3.new(0, 5.0, 0)
+	billboard.AlwaysOnTop = false
+	billboard.MaxDistance = 35
 	billboard.Adornee = liftBay
 	billboard.Parent = liftBay
 
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = false
+	label.TextSize = 13
+	label.Font = Enum.Font.GothamBold
 
 	if car.isComplete then
-		label.Text = string.format("[Lift #%d: COMPLETE]\n+$%d / sec", liftId, car.cashPerSecond)
-		label.TextColor3 = Color3.fromRGB(0, 255, 120)
+		label.Text = string.format("LIFT #%d [COMPLETE]\n+$%d/s", liftId, car.cashPerSecond)
+		label.TextColor3 = Color3.fromRGB(0, 255, 150)
 	else
-		local statusStr = string.format("[Lift #%d]\nE: %s | C: %s | B: %s",
+		local statusStr = string.format("LIFT #%d\nEngine: %s | Chassis: %s | Body: %s",
 			liftId,
 			if car.engineTier then "T" .. car.engineTier else "--",
 			if car.chassisTier then "T" .. car.chassisTier else "--",
 			if car.bodyTier then "T" .. car.bodyTier else "--"
 		)
 		label.Text = statusStr
-		label.TextColor3 = Color3.fromRGB(255, 200, 50)
+		label.TextColor3 = Color3.fromRGB(255, 210, 60)
 	end
 	label.Parent = billboard
 end
@@ -123,7 +125,7 @@ function LiftService.SetupPlotLiftPrompts(player: Player)
 	for liftId = 1, 6 do
 		local liftBay = getLiftBayPart(plotFolder, liftId)
 		if liftBay then
-			-- Attachment offsets to separate 3D prompt positions (prevents layering/overlap)
+			-- Attachment offsets to separate 3D prompt positions
 			local engineAtt = getOrCreateAttachment(liftBay, "EngineAtt", Vector3.new(-2.5, 3.5, -2.5))
 			local chassisAtt = getOrCreateAttachment(liftBay, "ChassisAtt", Vector3.new(0, 1.5, 0))
 			local bodyAtt = getOrCreateAttachment(liftBay, "BodyAtt", Vector3.new(2.5, 3.5, 2.5))
@@ -150,104 +152,96 @@ function LiftService.SetupPlotLiftPrompts(player: Player)
 			local heldCat, heldTier = CarryingService.GetHeldItem(player)
 
 			if isHolding and heldCat and heldTier then
-				local targetParent: Instance = liftBay
-				if heldCat == "Engine" then targetParent = engineAtt
-				elseif heldCat == "Chassis" then targetParent = chassisAtt
-				elseif heldCat == "Body" then targetParent = bodyAtt
+				-- Context-aware mounting prompt: ONLY attach prompt to target attachment if that slot is empty
+				local targetAtt: Attachment? = nil
+				local actionText = ""
+
+				if heldCat == "Engine" and (not car or car.engineTier == nil) then
+					targetAtt = engineAtt
+					actionText = string.format("Install Engine (T%d)", heldTier)
+				elseif heldCat == "Chassis" and (not car or car.chassisTier == nil) then
+					targetAtt = chassisAtt
+					actionText = string.format("Install Chassis (T%d)", heldTier)
+				elseif heldCat == "Body" and (not car or car.bodyTier == nil) then
+					targetAtt = bodyAtt
+					actionText = string.format("Install Body (T%d)", heldTier)
 				end
 
-				local mountPrompt = Instance.new("ProximityPrompt")
-				mountPrompt.Name = "MountPrompt"
-				mountPrompt.KeyboardKeyCode = Enum.KeyCode.F
-				mountPrompt.HoldDuration = 0
-				mountPrompt.RequiresLineOfSight = false
-				mountPrompt.MaxActivationDistance = 30
-				mountPrompt.ObjectText = string.format("Hydraulic Press / Lift #%d", liftId)
-				mountPrompt.ActionText = string.format("Mount Held %s (T%d) [F]", heldCat, heldTier)
-				mountPrompt.Parent = targetParent
+				if targetAtt then
+					local mountPrompt = Instance.new("ProximityPrompt")
+					mountPrompt.Name = "MountPrompt_" .. heldCat
+					mountPrompt.KeyboardKeyCode = Enum.KeyCode.E
+					mountPrompt.HoldDuration = 0
+					mountPrompt.RequiresLineOfSight = false
+					mountPrompt.MaxActivationDistance = 30
+					mountPrompt.ObjectText = string.format("Lift #%d", liftId)
+					mountPrompt.ActionText = actionText
+					mountPrompt.Parent = targetAtt
 
-				mountPrompt.Triggered:Connect(function(triggeringPlayer)
-					if triggeringPlayer ~= player then return end
-					local success, msg = LiftService.InstallHeldComponent(player, liftId)
-					if not success then
-						print(string.format("[LiftService] Cannot mount held part to Lift #%d: %s", liftId, msg))
-					end
-				end)
-			else
-				if not car or (car.engineTier == nil and car.chassisTier == nil and car.bodyTier == nil) then
-					local emptyPrompt = Instance.new("ProximityPrompt")
-					emptyPrompt.Name = "EmptyLiftPrompt"
-					emptyPrompt.KeyboardKeyCode = Enum.KeyCode.F
-					emptyPrompt.HoldDuration = 0
-					emptyPrompt.RequiresLineOfSight = false
-					emptyPrompt.MaxActivationDistance = 30
-					emptyPrompt.ObjectText = string.format("Hydraulic Press / Lift #%d", liftId)
-					emptyPrompt.ActionText = string.format("Mount Held Part [F] (Lift #%d)", liftId)
-					emptyPrompt.Parent = liftBay
-
-					emptyPrompt.Triggered:Connect(function(triggeringPlayer)
+					mountPrompt.Triggered:Connect(function(triggeringPlayer)
 						if triggeringPlayer ~= player then return end
-						print(string.format("[LiftService] Lift #%d is empty.", liftId))
+						local success, msg = LiftService.InstallHeldComponent(player, liftId)
+						if not success then
+							print(string.format("[LiftService] Cannot mount held part to Lift #%d: %s", liftId, msg))
+						end
 					end)
-				else
-					-- Engine Prompt [F]
+				end
+			else
+				-- Hands are empty: Render removal prompts ONLY for currently mounted sub-assemblies
+				if car then
+					-- Engine Removal [E]
 					if car.engineTier then
-						local fPrompt = Instance.new("ProximityPrompt")
-						fPrompt.Name = "RemovePrompt_Engine"
-						fPrompt.KeyboardKeyCode = Enum.KeyCode.F
-						fPrompt.ActionText = string.format("Pick Up Engine (T%d) [F]", car.engineTier)
-						fPrompt.ObjectText = string.format("Lift #%d - Engine Bay", liftId)
-						fPrompt.HoldDuration = 0
-						fPrompt.RequiresLineOfSight = false
-						fPrompt.MaxActivationDistance = 30
-						fPrompt.UIOffset = Vector2.new(-30, 0)
-						fPrompt.Parent = engineAtt
+						local ePrompt = Instance.new("ProximityPrompt")
+						ePrompt.Name = "RemovePrompt_Engine"
+						ePrompt.KeyboardKeyCode = Enum.KeyCode.E
+						ePrompt.ActionText = string.format("Pick Up Engine (T%d)", car.engineTier)
+						ePrompt.ObjectText = string.format("Lift #%d", liftId)
+						ePrompt.HoldDuration = 0
+						ePrompt.RequiresLineOfSight = false
+						ePrompt.MaxActivationDistance = 30
+						ePrompt.Parent = engineAtt
 
-						fPrompt.Triggered:Connect(function(triggeringPlayer)
+						ePrompt.Triggered:Connect(function(triggeringPlayer)
 							if triggeringPlayer ~= player then return end
 							LiftService.RemoveSpecificComponent(player, liftId, "Engine")
 						end)
 					end
 
-					-- Chassis Prompt [G]
+					-- Chassis Removal [E]
 					if car.chassisTier then
-						local key = if car.engineTier then Enum.KeyCode.G else Enum.KeyCode.F
-						local keyStr = if key == Enum.KeyCode.G then "[G]" else "[F]"
+						local cPrompt = Instance.new("ProximityPrompt")
+						cPrompt.Name = "RemovePrompt_Chassis"
+						cPrompt.KeyboardKeyCode = Enum.KeyCode.E
+						cPrompt.ActionText = string.format("Pick Up Chassis (T%d)", car.chassisTier)
+						cPrompt.ObjectText = string.format("Lift #%d", liftId)
+						cPrompt.HoldDuration = 0
+						cPrompt.RequiresLineOfSight = false
+						cPrompt.MaxActivationDistance = 30
+						cPrompt.Parent = chassisAtt
 
-						local gPrompt = Instance.new("ProximityPrompt")
-						gPrompt.Name = "RemovePrompt_Chassis"
-						gPrompt.KeyboardKeyCode = key
-						gPrompt.ActionText = string.format("Pick Up Chassis (T%d) %s", car.chassisTier, keyStr)
-						gPrompt.ObjectText = string.format("Lift #%d - Chassis", liftId)
-						gPrompt.HoldDuration = 0
-						gPrompt.RequiresLineOfSight = false
-						gPrompt.MaxActivationDistance = 30
-						gPrompt.UIOffset = Vector2.new(0, 30)
-						gPrompt.Parent = chassisAtt
-
-						gPrompt.Triggered:Connect(function(triggeringPlayer)
+						cPrompt.Triggered:Connect(function(triggeringPlayer)
 							if triggeringPlayer ~= player then return end
 							LiftService.RemoveSpecificComponent(player, liftId, "Chassis")
 						end)
 					end
 
-					-- Body Prompt [H]
+					-- Body Removal [E]
 					if car.bodyTier then
-						local key = if car.engineTier or car.chassisTier then Enum.KeyCode.H else Enum.KeyCode.F
-						local keyStr = if key == Enum.KeyCode.H then "[H]" else "[F]"
+						local bPrompt = Instance.new("ProximityPrompt")
+						bPrompt.Name = "RemovePrompt_Body"
+						bPrompt.KeyboardKeyCode = Enum.KeyCode.E
+						bPrompt.ActionText = string.format("Pick Up Body (T%d)", car.bodyTier)
+						bPrompt.ObjectText = string.format("Lift #%d", liftId)
+						bPrompt.HoldDuration = 0
+						bPrompt.RequiresLineOfSight = false
+						bPrompt.MaxActivationDistance = 30
+						bPrompt.Parent = bodyAtt
 
-						local hPrompt = Instance.new("ProximityPrompt")
-						hPrompt.Name = "RemovePrompt_Body"
-						hPrompt.KeyboardKeyCode = key
-						hPrompt.ActionText = string.format("Pick Up Body (T%d) %s", car.bodyTier, keyStr)
-						hPrompt.ObjectText = string.format("Lift #%d - Body Shell", liftId)
-						hPrompt.HoldDuration = 0
-						hPrompt.RequiresLineOfSight = false
-						hPrompt.MaxActivationDistance = 30
-						hPrompt.UIOffset = Vector2.new(30, 0)
-						hPrompt.Parent = bodyAtt
+						bPrompt.Triggered:Connect(function(triggeringPlayer)
+							if triggeringPlayer ~= player then return end
+							LiftService.RemoveSpecificComponent(player, liftId, "Body")
 
-						hPrompt.Triggered:Connect(function(triggeringPlayer)
+						bPrompt.Triggered:Connect(function(triggeringPlayer)
 							if triggeringPlayer ~= player then return end
 							LiftService.RemoveSpecificComponent(player, liftId, "Body")
 						end)
@@ -259,14 +253,22 @@ function LiftService.SetupPlotLiftPrompts(player: Player)
 end
 
 function LiftService.InstallHeldComponent(player: Player, liftId: number): (boolean, string)
+	if not DataService.TryLockPlayer(player) then
+		return false, "Action in progress"
+	end
+
 	local CarryingService = require(script.Parent.CarryingService)
 	local category, tier = CarryingService.GetHeldItem(player)
 	if not category or not tier then
+		DataService.UnlockPlayer(player)
 		return false, "Not holding any part"
 	end
 
 	local data = DataService.GetPlayerData(player)
-	if not data then return false, "Player data not found" end
+	if not data then
+		DataService.UnlockPlayer(player)
+		return false, "Player data not found"
+	end
 
 	local liftKey = tostring(liftId)
 	local car = data.Lifts[liftKey]
@@ -276,6 +278,9 @@ function LiftService.InstallHeldComponent(player: Player, liftId: number): (bool
 			engineTier = nil,
 			chassisTier = nil,
 			bodyTier = nil,
+			engineState = nil,
+			chassisState = nil,
+			bodyState = nil,
 			isComplete = false,
 			isPureTier = false,
 			pureTierLevel = nil,
@@ -283,13 +288,13 @@ function LiftService.InstallHeldComponent(player: Player, liftId: number): (bool
 		}
 	end
 
-	if category == "Engine" and car.engineTier ~= nil then return false, "Engine already installed" end
-	if category == "Chassis" and car.chassisTier ~= nil then return false, "Chassis already installed" end
-	if category == "Body" and car.bodyTier ~= nil then return false, "Body already installed" end
+	if category == "Engine" and car.engineTier ~= nil then DataService.UnlockPlayer(player) return false, "Engine already installed" end
+	if category == "Chassis" and car.chassisTier ~= nil then DataService.UnlockPlayer(player) return false, "Chassis already installed" end
+	if category == "Body" and car.bodyTier ~= nil then DataService.UnlockPlayer(player) return false, "Body already installed" end
 
-	if category == "Engine" then car.engineTier = tier end
-	if category == "Chassis" then car.chassisTier = tier end
-	if category == "Body" then car.bodyTier = tier end
+	if category == "Engine" then car.engineTier = tier car.engineState = "Mounted" end
+	if category == "Chassis" then car.chassisTier = tier car.chassisState = "Mounted" end
+	if category == "Body" then car.bodyTier = tier car.bodyState = "Mounted" end
 
 	local eL = if car.engineTier then PartIndexService.GetPartLevel(player, "Engine", car.engineTier) else 1
 	local cL = if car.chassisTier then PartIndexService.GetPartLevel(player, "Chassis", car.chassisTier) else 1
@@ -322,22 +327,34 @@ function LiftService.InstallHeldComponent(player: Player, liftId: number): (bool
 	local ConveyorService = require(script.Parent.ConveyorService)
 	ConveyorService.RenderAllWorkbenchItems(player)
 
+	DataService.UnlockPlayer(player)
 	print(string.format("[LiftService] Player %s mounted held %s T%d onto Lift #%d", player.Name, category, tier, liftId))
 	return true, "Success"
 end
 
 function LiftService.RemoveSpecificComponent(player: Player, liftId: number, category: Types.SubAssemblyCategory): (boolean, string)
+	if not DataService.TryLockPlayer(player) then
+		return false, "Action in progress"
+	end
+
 	local CarryingService = require(script.Parent.CarryingService)
 	if CarryingService.IsHolding(player) then
+		DataService.UnlockPlayer(player)
 		return false, "Player is already holding a part! Place or mount it first."
 	end
 
 	local data = DataService.GetPlayerData(player)
-	if not data then return false, "Player data not found" end
+	if not data then
+		DataService.UnlockPlayer(player)
+		return false, "Player data not found"
+	end
 
 	local liftKey = tostring(liftId)
 	local car = data.Lifts[liftKey]
-	if not car then return false, "No car on this lift" end
+	if not car then
+		DataService.UnlockPlayer(player)
+		return false, "No car on this lift"
+	end
 
 	local tierToRemove: number? = nil
 	if category == "Engine" then tierToRemove = car.engineTier end
@@ -345,13 +362,14 @@ function LiftService.RemoveSpecificComponent(player: Player, liftId: number, cat
 	if category == "Body" then tierToRemove = car.bodyTier end
 
 	if not tierToRemove then
+		DataService.UnlockPlayer(player)
 		return false, string.format("No %s installed on Lift #%d", category, liftId)
 	end
 
 	-- Unmount target category
-	if category == "Engine" then car.engineTier = nil end
-	if category == "Chassis" then car.chassisTier = nil end
-	if category == "Body" then car.bodyTier = nil end
+	if category == "Engine" then car.engineTier = nil car.engineState = nil end
+	if category == "Chassis" then car.chassisTier = nil car.chassisState = nil end
+	if category == "Body" then car.bodyTier = nil car.bodyState = nil end
 
 	local eL = if car.engineTier then PartIndexService.GetPartLevel(player, "Engine", car.engineTier) else 1
 	local cL = if car.chassisTier then PartIndexService.GetPartLevel(player, "Chassis", car.chassisTier) else 1
@@ -405,6 +423,7 @@ function LiftService.RemoveSpecificComponent(player: Player, liftId: number, cat
 	local ConveyorService = require(script.Parent.ConveyorService)
 	ConveyorService.RenderAllWorkbenchItems(player)
 
+	DataService.UnlockPlayer(player)
 	print(string.format("[LiftService] Player %s picked up %s T%d off Lift #%d to carry", player.Name, category, tierToRemove, liftId))
 	return true, "Success"
 end

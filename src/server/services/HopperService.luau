@@ -43,8 +43,13 @@ function HopperService.StoreCrate(player: Player, rarity: Types.CrateRarity): bo
 end
 
 function HopperService.WithdrawCrate(player: Player, crateId: string): (boolean, string, Types.WorkbenchItem?)
+	if not DataService.TryLockPlayer(player) then
+		return false, "Action in progress", nil
+	end
+
 	local data = DataService.GetPlayerData(player)
 	if not data then
+		DataService.UnlockPlayer(player)
 		return false, "Player data not found", nil
 	end
 
@@ -58,6 +63,7 @@ function HopperService.WithdrawCrate(player: Player, crateId: string): (boolean,
 	end
 
 	if not openSlot then
+		DataService.UnlockPlayer(player)
 		return false, "Workbench grid is full (16/16 slots occupied)", nil
 	end
 
@@ -73,6 +79,7 @@ function HopperService.WithdrawCrate(player: Player, crateId: string): (boolean,
 	end
 
 	if not crateIndex or not targetCrate then
+		DataService.UnlockPlayer(player)
 		return false, "Crate not found in hopper", nil
 	end
 
@@ -89,6 +96,7 @@ function HopperService.WithdrawCrate(player: Player, crateId: string): (boolean,
 		category = randomCategory,
 		tier = tierLevel,
 		gridSlot = openSlot,
+		state = "Workbench",
 	}
 
 	DataService.MutatePlayerData(player, function(d)
@@ -96,6 +104,10 @@ function HopperService.WithdrawCrate(player: Player, crateId: string): (boolean,
 		d.WorkbenchItems[tostring(openSlot)] = newItem
 	end)
 
+	local ConveyorService = require(script.Parent.ConveyorService)
+	ConveyorService.RenderWorkbenchItemVisual(player, openSlot, newItem)
+
+	DataService.UnlockPlayer(player)
 	print(string.format("[HopperService] Player %s unboxed %s Tier %d item from hopper to Workbench Slot %d", player.Name, randomCategory, tierLevel, openSlot))
 	return true, "Success", newItem
 end
